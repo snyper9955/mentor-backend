@@ -22,6 +22,6 @@ initializeSocket(server);
 // Start Server
 server.listen(PORT, () => {
   console.log(
-    `🚀 Server running in ${NODE_ENV} mode on port ${PORT}`
+    `🚀 Server running in  mode on port ${PORT}`
   );
 });
