@@ -1,47 +1,48 @@
-const mongoose = require("mongoose");
+// models/Message.js
+const mongoose = require('mongoose');
 
-const messageSchema = new mongoose.Schema(
-  {
-    roomId: {
-      type: String,
-      required: true,
-    },
-
-    message: {
-      type: String,
-      required: true,
-    },
-
-    sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    // ✅ Track who saw the message
-    seenBy: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
-    readAt: [
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    time: Date,
+const messageSchema = new mongoose.Schema({
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Sender is required']
   },
+  receiver: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Receiver is required']
+  },
+  roomId: {
+    type: String,
+    required: [true, 'Room ID is required'],
+    index: true
+  },
+  message: {
+    type: String,
+    required: [true, 'Message content is required']
+  },
+  file: {
+    name: String,
+    type: String,
+    data: String,
+    size: Number
+  },
+  seenBy: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  }
 ],
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true
+});
 
-    // Optional but useful
-    delivered: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  { timestamps: true }
-);
+// Index for faster queries
+messageSchema.index({ roomId: 1, timestamp: -1 });
+messageSchema.index({ sender: 1, receiver: 1, timestamp: -1 });
 
-module.exports = mongoose.model("Message", messageSchema);
+module.exports = mongoose.model('Message', messageSchema);

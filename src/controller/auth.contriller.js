@@ -152,6 +152,66 @@ exports.forgotPassword = async (req, res) => {
 
 
 
+// Set user online
+exports.setOnline = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        online: true,
+        lastActive: new Date()
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Set user offline
+exports.setOffline = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        online: false,
+        lastActive: new Date()
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update last active only
+exports.updateLastActive = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, {
+      lastActive: new Date()
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get all online users
+exports.getOnlineUsers = async (req, res) => {
+  try {
+    const users = await User.find({ online: true })
+      .select("-password");
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 
 

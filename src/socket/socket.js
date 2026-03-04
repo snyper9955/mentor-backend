@@ -1,3 +1,4 @@
+// socket/index.js
 const { Server } = require("socket.io");
 const Message = require("../models/Message");
 const User = require("../models/User");
@@ -34,10 +35,12 @@ const initializeSocket = (server) => {
 
       onlineUsers.get(userId).add(socket.id);
 
-      // ✅ Mark user ONLINE in DB
-      await User.findByIdAndUpdate(userId, {
-        online: true,
-      });
+      // ✅ Mark user ONLINE in DB - Fix deprecation warning
+      await User.findByIdAndUpdate(
+        userId, 
+        { online: true },
+        { returnDocument: 'after' } // Instead of { new: true }
+      );
 
       // ✅ Broadcast online status
       io.emit("user_online", { userId });
@@ -71,22 +74,49 @@ const initializeSocket = (server) => {
     ===================================================== */
     socket.on("send_message", async (data) => {
       try {
-        const { roomId, message, sender, receiver } = data;
+        const { roomId, message, sender, receiver, file, timestamp } = data;
 
-        if (!roomId || !message) return;
+        // Validate required fields
+        if (!roomId || !message || !sender || !receiver) {
+          console.log("❌ Missing required fields:", { roomId, message, sender, receiver });
+          return socket.emit("error", { message: "Missing required fields" });
+        }
 
-        const savedMessage = await Message.create({
+        console.log("📨 Saving message:", { roomId, sender, receiver, message });
+
+        // Create message object
+        const messageData = {
           roomId,
           message,
           sender,
-        });
+          receiver,
+          timestamp: timestamp ? new Date(timestamp) : new Date()
+        };
+
+        // Add file if present
+        if (file) {
+          messageData.file = file;
+        }
+
+        const savedMessage = await Message.create(messageData);
+
+        console.log("✅ Message saved with ID:", savedMessage._id);
 
         // ✅ Emit to room
-        io.to(roomId).emit("receive_message", savedMessage);
+        io.to(roomId).emit("receive_message", {
+          ...savedMessage.toObject(),
+          _id: savedMessage._id
+        });
 
-        console.log("📩 Message Saved & Sent");
+        console.log("📩 Message Sent to room:", roomId);
       } catch (error) {
         console.log("❌ Send Message Error:", error);
+        
+        // Send error back to client
+        socket.emit("error", { 
+          message: "Failed to send message",
+          details: error.message 
+        });
       }
     });
 
@@ -95,25 +125,43 @@ const initializeSocket = (server) => {
     ===================================================== */
     socket.on("mark_seen", async ({ roomId, userId }) => {
       try {
-        await Message.updateMany(
+        const result = await Message.updateMany(
           {
             roomId,
-            sender: { $ne: userId },
+            receiver: userId,
+            seen: false
           },
           {
-            $set: { seen: true },
+            $set: { seen: true }
           }
         );
+
+        console.log(`👁 Marked ${result.modifiedCount} messages as seen`);
 
         // Notify sender
         socket.to(roomId).emit("messages_seen", {
           roomId,
           userId,
         });
-
-        console.log("👁 Messages marked seen");
       } catch (err) {
         console.log("Seen Error:", err);
+      }
+    });
+
+    /* =====================================================
+       GET MESSAGE HISTORY
+    ===================================================== */
+    socket.on("get_messages", async ({ roomId }) => {
+      try {
+        const messages = await Message.find({ roomId })
+          .sort({ timestamp: 1 })
+          .limit(100);
+
+        socket.emit("load_messages", messages);
+        console.log(`📚 Loaded ${messages.length} messages for room:`, roomId);
+      } catch (error) {
+        console.log("Error loading messages:", error);
+        socket.emit("load_messages", []);
       }
     });
 
@@ -132,17 +180,26 @@ const initializeSocket = (server) => {
         if (sockets.size === 0) {
           onlineUsers.delete(userId);
 
-          // ✅ Mark Offline in DB
-          await User.findByIdAndUpdate(userId, {
-            online: false,
-            lastActive: new Date(),
-          });
+          try {
+            // ✅ Mark Offline in DB - Fix deprecation warning
+            await User.findByIdAndUpdate(
+              userId,
+              {
+                online: false,
+                lastActive: new Date(),
+              },
+              { returnDocument: 'after' } // Instead of { new: true }
+            );
 
-          // ✅ Broadcast offline
-          io.emit("user_offline", {
-            userId,
-            lastActive: new Date(),
-          });
+            // ✅ Broadcast offline
+            io.emit("user_offline", {
+              userId,
+              lastActive: new Date().toISOString(),
+            });
+            console.log("🔴 User fully Offline:", userId);
+          } catch (err) {
+            console.log("Error marking user offline:", err);
+          }
         }
       }
     });
@@ -154,4 +211,4 @@ const getIO = () => io;
 module.exports = {
   initializeSocket,
   getIO,
-}; 
+};

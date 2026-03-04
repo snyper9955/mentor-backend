@@ -1,5 +1,5 @@
 const express = require("express");
-const { register, getUsers, login, getMe, resetPassword, forgotPassword, logout } = require("../controller/auth.contriller");
+const { register, getUsers, login, getMe, resetPassword, forgotPassword, logout, setOnline, setOffline, updateLastActive, getOnlineUsers } = require("../controller/auth.contriller");
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/authorize");
 const { createMeeting, getMeetings, MeetingRequestingForMentor } = require("../controller/meeting");
@@ -9,8 +9,9 @@ const Message = require("../models/Message"); // ✅ ADD THIS
 const router = express.Router();
 
 
+
 router.post("/register", register)
-router.get("/users", getUsers)
+// router.get("/users", getUsers) // Covered by protected /users below
 router.post("/login", login);
 router.get("/me", protect, getMe);
 router.post("/forgot-password", forgotPassword);
@@ -42,23 +43,7 @@ router.get(
 );
 
 
-router.get("/:id", protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .select("-password -__v");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-
+// Removed conflicting /:id route, using /user/:id further down instead
 
 
 /*
@@ -145,5 +130,19 @@ router.get("/user/:id", protect, async (req, res) => {
     console.error("User Fetch Error:", error);
   }
 });
+
+
+
+// Set user online
+router.put("/online", protect, setOnline);
+
+// Set user offline
+router.put("/offline", protect, setOffline);
+
+// Update last active manually
+router.put("/last-active", protect, updateLastActive);
+
+// Get all online users
+router.get("/online-users", getOnlineUsers);
 
 module.exports = router;
