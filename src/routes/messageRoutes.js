@@ -1,11 +1,7 @@
 const router = require("express").Router();
 const Message = require("../models/Message");
 
-/*
-=================================================
-✅ GET Messages By Room
-=================================================
-*/
+
 
 router.get("/messages/:roomId", async (req, res) => {
   try {
@@ -39,11 +35,7 @@ router.get("/messages/:roomId", async (req, res) => {
 
 
 
-/*
-=================================================
-✅ GET All Messages (Admin / Debug Purpose)
-=================================================
-*/
+
 router.get("/messages", async (req, res) => {
   try {
     const messages = await Message.find().sort({
@@ -65,11 +57,7 @@ router.get("/messages", async (req, res) => {
 });
 
 
-/*
-=================================================
-✅ Create Message (REST Backup)
-=================================================
-*/
+
 router.post("/messages", async (req, res) => {
   try {
     const { roomId, message, sender } = req.body;
@@ -101,11 +89,8 @@ router.post("/messages", async (req, res) => {
 });
 
 
-/*
-=================================================
-✅ Delete Message
-=================================================
-*/
+
+
 router.delete("/messages/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -134,11 +119,7 @@ router.delete("/messages/:id", async (req, res) => {
 
 
 
-/*
-=================================================
-✅ Edit Message
-=================================================
-*/
+
 router.put("/messages/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -166,15 +147,7 @@ router.put("/messages/:id", async (req, res) => {
 
 
 
-/*
-=================================================
-✅ Mark Messages As Seen
-=================================================
-*//*
-=================================================
-✅ Mark Messages As Seen (Better Version)
-=================================================
-*/router.put("/messages/seen/:roomId", async (req, res) => {
+router.put("/messages/seen/:roomId", async (req, res) => {
   try {
     const { roomId } = req.params;
     const { userId } = req.body;

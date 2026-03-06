@@ -1,25 +1,45 @@
 const express = require("express");
-const { register, getUsers, login, getMe, resetPassword, forgotPassword, logout, setOnline, setOffline, updateLastActive, getOnlineUsers } = require("../controller/auth.contriller");
+
+const {
+  register,
+  login,
+  getMe,
+  forgotPassword,
+  resetPassword,
+  logout,
+  setOnline,
+  setOffline,
+  updateLastActive,
+  getOnlineUsers
+} = require("../controller/auth.contriller");
+
+const {
+  createMeeting,
+  getMeetings,
+  MeetingRequestingForMentor
+} = require("../controller/meeting");
+
+const { getMentors } = require("../controller/mentor");
+
 const { protect } = require("../middleware/authMiddleware");
 const { authorize } = require("../middleware/authorize");
-const { createMeeting, getMeetings, MeetingRequestingForMentor } = require("../controller/meeting");
-const { getMentors } = require("../controller/mentor");
+
 const User = require("../models/User");
-const Message = require("../models/Message"); // ✅ ADD THIS
+const Message = require("../models/Message");
 const router = express.Router();
-
-
-
-router.post("/register", register)
-// router.get("/users", getUsers) // Covered by protected /users below
+router.post("/register", register);
 router.post("/login", login);
-router.get("/me", protect, getMe);
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password/:token", resetPassword);
 router.post("/logout", logout);
 
+router.get("/me", protect, getMe);
 
-router.post("/meetings",protect,authorize("mentor"),createMeeting);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password/:token", resetPassword);
+
+
+
+router.post("/meetings", protect, authorize("mentor"), createMeeting);
+
 router.get(
   "/meetings",
   protect,
@@ -27,13 +47,14 @@ router.get(
   getMeetings
 );
 
-router.post("/meetings-request",protect,authorize("student"),MeetingRequestingForMentor);
-router.get(
-  "/meetings",
+router.post(
+  "/meetings-request",
   protect,
-  authorize("mentor", "student", "admin"),
-  getMeetings
+  authorize("student"),
+  MeetingRequestingForMentor
 );
+
+
 
 router.get(
   "/mentors",
@@ -43,43 +64,32 @@ router.get(
 );
 
 
-// Removed conflicting /:id route, using /user/:id further down instead
-
-
-/*
-=================================================
-✅ Get All Users (Sorted By Latest Message)
-=================================================
-*/router.get("/users", protect, async (req, res) => {
+router.get("/users", protect, async (req, res) => {
   try {
     const currentUserId = req.user._id;
 
-    // ✅ Get all users except current user
     const users = await User.find({
-      _id: { $ne: currentUserId },
+      _id: { $ne: currentUserId }
     })
       .select("-password -__v")
       .lean();
 
-    // ✅ Attach last message + unread count
     const usersWithMeta = await Promise.all(
       users.map(async (user) => {
         const room1 = `${currentUserId}_${user._id}`;
         const room2 = `${user._id}_${currentUserId}`;
 
-        // 🔥 Get last message
         const lastMessage = await Message.findOne({
-          $or: [{ roomId: room1 }, { roomId: room2 }],
+          $or: [{ roomId: room1 }, { roomId: room2 }]
         })
           .sort({ createdAt: -1 })
           .select("createdAt")
           .lean();
 
-        // 🔥 Count unread messages (messages sent by user to me and not seen)
         const unreadCount = await Message.countDocuments({
           roomId: { $in: [room1, room2] },
           sender: user._id,
-          seen: false,
+          seen: false
         });
 
         return {
@@ -87,18 +97,15 @@ router.get(
           online: user.online || false,
           lastActive: user.lastActive || null,
           lastMessageTime: lastMessage?.createdAt || 0,
-          unreadCount,
+          unreadCount
         };
       })
     );
 
-    // ✅ Sort by latest message OR unread priority
     const sortedUsers = usersWithMeta.sort((a, b) => {
-      // 🔥 Priority 1 → Users with unread messages on top
       if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
       if (b.unreadCount > 0 && a.unreadCount === 0) return 1;
 
-      // 🔥 Priority 2 → Sort by last message time
       return (
         new Date(b.lastMessageTime).getTime() -
         new Date(a.lastMessageTime).getTime()
@@ -107,14 +114,13 @@ router.get(
 
     res.json(sortedUsers);
   } catch (error) {
-    console.error("User Fetch Error:", error);
+    console.error(error);
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 
-// Get single user by ID
-// ✅ Get single user by ID
+
 router.get("/user/:id", protect, async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
@@ -127,22 +133,17 @@ router.get("/user/:id", protect, async (req, res) => {
 
     res.json(user);
   } catch (error) {
-    console.error("User Fetch Error:", error);
+    console.error(error);
   }
 });
 
 
 
-// Set user online
 router.put("/online", protect, setOnline);
-
-// Set user offline
 router.put("/offline", protect, setOffline);
-
-// Update last active manually
 router.put("/last-active", protect, updateLastActive);
-
-// Get all online users
 router.get("/online-users", getOnlineUsers);
+
+
 
 module.exports = router;

@@ -250,7 +250,6 @@ exports.getTodayTime = async (req, res) => {
   }
 };
 
-// Optional: Get activity for a specific date range
 exports.getActivityByDateRange = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
